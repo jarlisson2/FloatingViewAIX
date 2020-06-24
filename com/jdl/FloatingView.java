@@ -14,7 +14,9 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.View.OnClickListener;
 import android.view.View.OnTouchListener;
+import android.widget.FrameLayout;
 import android.widget.RelativeLayout;
+import android.widget.RelativeLayout.LayoutParams;
 
 import static android.content.Context.WINDOW_SERVICE;
 import com.google.appinventor.components.annotations.DesignerComponent;
@@ -30,6 +32,7 @@ import com.google.appinventor.components.runtime.AndroidViewComponent;
 import com.google.appinventor.components.runtime.ComponentContainer;
 import com.google.appinventor.components.runtime.EventDispatcher;
 import com.google.appinventor.components.runtime.OnDestroyListener;
+import com.google.appinventor.components.runtime.util.YailList;
 
 @DesignerComponent(version = 1, description = "Floating View <br> Developed by Jarlisson", category = ComponentCategory.EXTENSION, nonVisible = true, iconName = "aiwebres/icon.png", helpUrl = "https://github.com/jarlisson2/FloatingViewAIX") // //
 @UsesPermissions(permissionNames = "android.permission.ACTION_MANAGE_OVERLAY_PERMISSION,android.permission.SYSTEM_ALERT_WINDOW")
@@ -78,6 +81,12 @@ public class FloatingView extends AndroidNonvisibleComponent implements Activity
         if (checkDrawOverlayPermission(true)) {
             showFloatView();
         }
+    }
+
+    @SimpleFunction(description = "Through this block it is possible to overlap any visible component on another.\nmargins (list):\n\tindex 1 -> margin left (number)\n\tindex 2 -> margin top (number)\n\tindex 3 -> margin right(number)\n\tindex 4 -> margin bottom (number)\ngravity (number):\n\t0  -> TOP-LEFT\n\t1  -> TOP-CENTER\n\t2  -> TOP-RIGHT\n\t3  -> CENTER-LEFT\n\t4  -> CENTER\n\t5  -> CENTER-RIGHT\n\t6  -> BOTTOM-LEFT\n\t7  -> BOTTOM-CENTER\n\t8  -> BOTTOM-RIGHT\n")
+    public void OverlapView(AndroidViewComponent mainComponent, AndroidViewComponent childComponent, YailList margins,
+            int gravity) {
+        overlapView(mainComponent, childComponent, margins, gravity);
     }
 
     @SimpleFunction(description = "Hides the floating component.")
@@ -202,8 +211,8 @@ public class FloatingView extends AndroidNonvisibleComponent implements Activity
                 PixelFormat.TRANSLUCENT);
 
         params.gravity = Gravity.TOP | Gravity.LEFT;
-        params.x=positionX;
-        params.y=positionY;
+        params.x = positionX;
+        params.y = positionY;
 
         View view = viewHV instanceof ViewGroup ? ((ViewGroup) viewHV).getChildAt(0) : (View) viewHV;
         view.setOnClickListener(new OnClickListener() {
@@ -263,6 +272,41 @@ public class FloatingView extends AndroidNonvisibleComponent implements Activity
 
         rl.addView(viewHV);
 
+    }
+
+    private void overlapView(AndroidViewComponent mainComponent, AndroidViewComponent childComponent, YailList margins,
+            int gravity) {
+        if (gravity == 0)
+            gravity = Gravity.TOP | Gravity.LEFT;
+        else if (gravity == 1)
+            gravity = Gravity.TOP | Gravity.CENTER;
+        else if (gravity == 2)
+            gravity = Gravity.TOP | Gravity.RIGHT;
+        else if (gravity == 3)
+            gravity = Gravity.CENTER | Gravity.LEFT;
+        else if (gravity == 4)
+            gravity = Gravity.CENTER;
+        else if (gravity == 5)
+            gravity = Gravity.CENTER | Gravity.RIGHT;
+        else if (gravity == 6)
+            gravity = Gravity.BOTTOM | Gravity.LEFT;
+        else if (gravity == 7)
+            gravity = Gravity.BOTTOM | Gravity.CENTER;
+        else if (gravity == 8)
+            gravity = Gravity.BOTTOM | Gravity.RIGHT;
+        View viewChild = childComponent.getView();
+        if (viewChild.getParent() != null)
+            ((ViewGroup) viewChild.getParent()).removeView(viewChild);
+        FrameLayout child = new FrameLayout(context);
+        child.addView(viewChild);
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(LayoutParams.WRAP_CONTENT,
+                LayoutParams.WRAP_CONTENT);
+        params.gravity = gravity;
+        String[] m = margins.toStringArray();
+        params.setMargins(m.length > 0 ? Integer.parseInt(m[0]) : 0, m.length > 1 ? Integer.parseInt(m[1]) : 0,
+                m.length > 2 ? Integer.parseInt(m[2]) : 0, m.length > 3 ? Integer.parseInt(m[3]) : 0);
+        child.setLayoutParams(params);
+        ((FrameLayout) mainComponent.getView()).addView(child);
     }
 
     @Override
