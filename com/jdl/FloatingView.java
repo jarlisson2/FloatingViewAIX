@@ -57,6 +57,9 @@ public class FloatingView extends AndroidNonvisibleComponent implements Activity
     private WindowManager mWindowManager;
     private WindowManager.LayoutParams params;
     private RelativeLayout rl;
+    private ViewGroup viewParent;
+    private int indexChild;
+    private View viewHV;
 
     private int requestCode = 0;
 
@@ -71,9 +74,9 @@ public class FloatingView extends AndroidNonvisibleComponent implements Activity
 
     @SimpleFunction(description = "Initializes the component you want to float.")
     public void SetupView(AndroidViewComponent viewComponent, boolean clickable, int positionX, int positionY) {
-        View view = viewComponent.getView();
+        viewHV = viewComponent.getView();
         this.clickable = clickable;
-        floatViewHV(view, positionX, positionY);
+        floatViewHV(positionX, positionY);
     }
 
     @SimpleFunction(description = "Displays the floating component.")
@@ -134,6 +137,11 @@ public class FloatingView extends AndroidNonvisibleComponent implements Activity
         return clickable;
     }
 
+    @SimpleProperty(description = "Checks if the floating is present on the screen.")
+    public boolean GetFloatingViewVisible() {
+        return mIsFloatViewShowing;
+    }
+
     @SimpleEvent(description = "View moved from position")
     public void PositionMoved(int x, int y) {
         EventDispatcher.dispatchEvent(this, "PositionMoved", x, y);
@@ -142,6 +150,57 @@ public class FloatingView extends AndroidNonvisibleComponent implements Activity
     @SimpleEvent(description = "Executes after clicking on the floating component.")
     public void ClickView() {
         EventDispatcher.dispatchEvent(this, "ClickView");
+    }
+
+    @SimpleFunction(description = "Returns the floating window to the screen.")
+    public void RestoreFloatingView() {
+        activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                if (rl != null) {
+                    if (mIsFloatViewShowing && mWindowManager != null)
+                        mWindowManager.removeView(rl);
+                    mIsFloatViewShowing = false;
+                    rl.removeView(viewHV);
+                    View view = viewHV instanceof ViewGroup ? ((ViewGroup) viewHV).getChildAt(0) : (View) viewHV;
+                    view.setOnClickListener(null);
+                    view.setOnTouchListener(null);
+                    viewParent.addView(viewHV, indexChild);
+                    rl = null;
+                }
+            }
+        });
+    }
+
+    @SimpleFunction(description = "Prompts to focus on the floating window.")
+    public void RequestFocusFloatingView() {
+        if (mIsFloatViewShowing) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (mWindowManager != null) {
+                        params.flags=WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
+                        mWindowManager.updateViewLayout(rl, params);
+                    }
+                }
+            });
+        }        
+    }
+
+    @SimpleFunction(description = "Loses focus on the floating window.")
+    public void LoseFocusFloatingView() {
+        if (mIsFloatViewShowing) {
+            activity.runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (mWindowManager != null) {
+                        rl.clearFocus();
+                        params.flags= WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE | WindowManager.LayoutParams.FLAG_WATCH_OUTSIDE_TOUCH;
+                        mWindowManager.updateViewLayout(rl, params);
+                    }
+                }
+            });
+        }        
     }
 
     @Override
@@ -177,6 +236,7 @@ public class FloatingView extends AndroidNonvisibleComponent implements Activity
                     if (!activity.isFinishing()) {
                         mWindowManager = (WindowManager) activity.getSystemService(WINDOW_SERVICE);
                         if (mWindowManager != null) {
+                            rl.clearFocus();
                             mWindowManager.addView(rl, params);
                         }
                     }
@@ -200,7 +260,7 @@ public class FloatingView extends AndroidNonvisibleComponent implements Activity
         }
     }
 
-    private void floatViewHV(View viewHV, int positionX, int positionY) {
+    private void floatViewHV(int positionX, int positionY) {
         dismissFloatView();
         rl = new RelativeLayout(context);
         params = new WindowManager.LayoutParams(WindowManager.LayoutParams.WRAP_CONTENT,
@@ -266,10 +326,11 @@ public class FloatingView extends AndroidNonvisibleComponent implements Activity
                 return mFloatViewTouchConsumedByMove;
             }
         });
-
-        if (viewHV.getParent() != null)
+        if (viewHV.getParent() != null) {
+            viewParent = (ViewGroup) viewHV.getParent();
+            indexChild = viewParent.indexOfChild(viewHV);
             ((ViewGroup) viewHV.getParent()).removeView(viewHV);
-
+        }
         rl.addView(viewHV);
 
     }
